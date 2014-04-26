@@ -51,11 +51,11 @@
                     this.velocity.y = -280;
                 }
                 
-                if(this.velocity.x != 0) {
-                    this.play("run");    
-                } else {
-                    this.play("idle");    
-                }
+            }
+            if(this.velocity.x != 0) {
+                this.play("run");    
+            } else {
+                this.play("idle");    
             }
             Jxl.Sprite.prototype.update.call(this);
         },
@@ -75,7 +75,9 @@
            return {
                reverse : this.reverse,
                x : this.x, 
-               y : this.y 
+               y : this.y,
+               vx : this.velocity.x,
+               vy : this.velocity.y
            };
         },
         bunnyStorm : function() {
@@ -140,15 +142,25 @@
             window.location.hash = id;
             this.summon();
         },
+        sane : function(data) {
+            return data < 10000 && data > -10000;    
+        },
         onData : function(conn, data) {
             switch(data.type) {
                 case "avatar":
+                    if(!data.pack && [data.x, data.y, data.vx, data.vy].reduce(function(prev, cur){return prev || !sane(cur); })) {
+                        conn.close();
+                        return; 
+                    }
+                    
                     if(!conn.avatar) {
                         conn.avatar = new SNC.Wizard(data.pack.x, data.pack.y);
                         this.avatars.add(conn.avatar);    
                     }
                     conn.avatar.x = data.pack.x+conn.offset.x;
                     conn.avatar.y = data.pack.y+conn.offset.y;
+                    conn.avatar.velocity.x = data.pack.vx;
+                    conn.avatar.velocity.y = data.pack.vy;
                     conn.avatar.reverse = data.pack.reverse;
                     break;
                     
