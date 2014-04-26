@@ -222,7 +222,7 @@
     
     Jxl.am.load({
         "images" : {
-            "wizard" : "assets/wizard-test.png",
+            "wizard" : "assets/wizard.png",
             "tile" : "assets/tile.png",
             "bunny" : "assets/bunny.png"
         },
