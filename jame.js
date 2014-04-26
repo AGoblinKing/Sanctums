@@ -16,7 +16,7 @@
             
             this.emitter = new Jxl.Emitter();
             this.emitter.createSprites(Jxl.am.get("bunny"), 8, new Jxl.Point({x: 36, y: 21}), true, true, 0.8);
-            this.emitter.setYSpeed(-50, 50);
+            this.emitter.setYSpeed(-300, 300);
             
             setTimeout(function() {
                 Jxl.state.particles.add(self.emitter);
