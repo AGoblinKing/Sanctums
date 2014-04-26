@@ -15,7 +15,7 @@
             });
             
             this.emitter = new Jxl.Emitter();
-            this.emitter.createSprites(Jxl.am.get("bunny"), 8, new Jxl.Point({x: 36, y: 21}), true, true, 0.8);
+            this.emitter.createSprites(Jxl.am.get("bunny"), 28, new Jxl.Point({x: 36, y: 21}), true, true, 0.8);
             this.emitter.setYSpeed(-300, 300);
             
             setTimeout(function() {
@@ -88,7 +88,7 @@
             this.emitter.y = this.y + this.height/4 + Math.random() * 5;
             
             this.emitter.setXSpeed(500*factor, 800*factor);
-            this.emitter.start(true, 5, 8);
+            this.emitter.start(true, 5, 1);
         }
     });
     
