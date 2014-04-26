@@ -4,12 +4,22 @@
     def("SNC.Wizard", {
         extend: Jxl.Sprite,
         init : function(x, y, me) {
+            var self = this;
+            
             this.me = me;
             Jxl.Sprite.prototype.init.call(this, {
                 x: x,
                 y: y,
                 graphic : Jxl.am.get("wizard")
             });
+            
+            this.emitter = new Jxl.Emitter();
+            this.emitter.createSprites(Jxl.am.get("bunny"), 8, new Jxl.Point({x: 36, y: 21}), true, true, 0.8);
+            this.emitter.setYSpeed(-50, 50);
+            
+            setTimeout(function() {
+                Jxl.state.particles.add(self.emitter);
+            }, 0);
             
             if(me) {
                 this.acceleration.y = 800;
@@ -29,7 +39,11 @@
                      this.reverse = false;
                      this.velocity.x = this.speed;
                 } 
-
+                
+                if(Jxl.keys.on("P")) {
+                    this.bunnyStorm();    
+                }
+                
                 if((Jxl.keys.press(32)) && (this.onFloor || this.onSide)) {
                     this.velocity.y = -280;
                 }    
@@ -54,6 +68,15 @@
                x : this.x, 
                y : this.y 
            };
+        },
+        bunnyStorm : function() {
+            var factor = this.reverse ? -1 : 1;
+            
+            this.emitter.x = this.x + this.width/2 + this.width/2 * factor + Math.random() * 5;
+            this.emitter.y = this.y + this.height/4 + Math.random() * 5;
+            
+            this.emitter.setXSpeed(500*factor, 800*factor);
+            this.emitter.start(true, 5, 8);
         }
     });
     
@@ -82,12 +105,15 @@
             var myMap = this.map = new SNC.Map();
             this.maps.add(myMap);
             
+            //Particles
+            this.particles = new Jxl.Group();
+            
             //Avatars
             this.avatars = new Jxl.Group();
             this.avatar = new SNC.Wizard(myMap.widthInTiles*myMap._tileWidth/2, myMap.heightInTiles*myMap._tileHeight/2, true);
             this.add(this.avatar);
             
-            this.add(this.maps, this.avatars);
+            this.add(this.maps, this.avatars, this.particles);
             
             Jxl.followLead = new Jxl.Point({x:-0.01, y:-0.01});
             Jxl.follow(this.avatar);
@@ -155,6 +181,8 @@
             Jxl.State.prototype.update.call(this);
             Jxl.Util.collide(this.avatar, this.maps);
             Jxl.Util.collide(this.avatar, this.avatars);
+            Jxl.Util.collide(this.particles, this.avatars);
+            Jxl.Util.collide(this.particles, this.maps);
             
             // net update
             Object.keys(this.peers).forEach(function(peer) {
@@ -173,7 +201,8 @@
     Jxl.am.load({
         "images" : {
             "wizard" : "assets/wizard.png",
-            "tile" : "assets/tile.png"
+            "tile" : "assets/tile.png",
+            "bunny" : "assets/bunny.png"
         },
         "data" : {
             "map" : "assets/map.csv"    
