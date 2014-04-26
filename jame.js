@@ -10,7 +10,8 @@
             Jxl.Sprite.prototype.init.call(this, {
                 x: x,
                 y: y,
-                graphic : Jxl.am.get("wizard")
+                graphic : Jxl.am.get("wizard"),
+                width: 47
             });
             
             this.emitter = new Jxl.Emitter();
@@ -29,6 +30,8 @@
             } else {
                 this.fixed = true;    
             }
+            this.addAnimation("run", [1, 2, 3], .03);
+            this.addAnimation("idle", [0], .5);
         },
         update: function() {
             if(this.me) {
@@ -46,7 +49,13 @@
                 
                 if((Jxl.keys.press(32)) && (this.onFloor || this.onSide)) {
                     this.velocity.y = -280;
-                }    
+                }
+                
+                if(this.velocity.x != 0) {
+                    this.play("run");    
+                } else {
+                    this.play("idle");    
+                }
             }
             Jxl.Sprite.prototype.update.call(this);
         },
