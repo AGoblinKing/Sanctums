@@ -31,7 +31,7 @@
                 this.fixed = true;
                 this.moves = false;
             }
-            this.addAnimation("run", [1, 2, 3], .03);
+            this.addAnimation("run", [2, 1, 3], .03);
             this.addAnimation("idle", [0], .5);
         },
         update: function() {
@@ -222,7 +222,7 @@
     
     Jxl.am.load({
         "images" : {
-            "wizard" : "assets/wizard.png",
+            "wizard" : "assets/wizard-test.png",
             "tile" : "assets/tile.png",
             "bunny" : "assets/bunny.png"
         },
