@@ -28,7 +28,8 @@
                 this.speed = 300;
                 this.drag = new Jxl.Point({x:150,y:0});
             } else {
-                this.fixed = true;    
+                this.fixed = true;
+                this.moves = false;
             }
             this.addAnimation("run", [1, 2, 3], .03);
             this.addAnimation("idle", [0], .5);
