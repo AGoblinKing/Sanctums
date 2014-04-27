@@ -110,6 +110,7 @@
                 } else {
                     Jxl.state.avatar.modScore(1);    
                 }
+                Jxl.audio.play("bunnyhit");
             }
         },
         hitBottom: function(Contact, Velocity) {
@@ -189,6 +190,7 @@
                     bunnies: bunnies
                 };
             }
+            Jxl.audio.play("bunnyshoot");
         }
     });
     
@@ -375,6 +377,8 @@
             conn.offset = { x : x*map.width, y: y*map.height};
             this.maps.add(map);
             this.peers[conn.peer] = conn;
+            
+            Jxl.audio.play("mapready");
         },
         onConnection : function(conn, connecter) {
             conn.on("data", this.onData.bind(this, conn));
@@ -443,6 +447,11 @@
         },
         "data" : {
             "map" : "assets/map.csv"    
+        },
+        "sounds" : {
+            "bunnyhit" : "assets/bunnyhit.wav", 
+            "bunnyshoot" : "assets/bunnyshoot.wav",
+            "mapready" : "assets/mapready.wav"
         }
     }, function() {
         Jxl.state = new SNC.GameState();
