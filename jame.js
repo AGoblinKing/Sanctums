@@ -285,7 +285,6 @@
                     conn.avatar.reverse = data.pack.reverse;
                     
                     if(pack.stormed) {
-                        console.log("BUNNNNNY STORM");
                         conn.avatar.bunnyStorm(pack.stormed.x+conn.offset.x, pack.stormed.y+conn.offset.y, pack.stormed.xSpeed, pack.stormed.ySpeed, pack.stormed.reverse);    
                     }
                     
