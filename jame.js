@@ -16,8 +16,7 @@
             
             this.emitter = new Jxl.Emitter();
             this.emitter.createSprites(Jxl.am.get("bunny"), 28, new Jxl.Point({x: 36, y: 21}), true, true, 0.8);
-            this.emitter.setYSpeed(-300, 300);
-            
+            this.emitter.members.forEach(function(bunny) { bunny.isBunny = true; });
             
             this.emitter2 = new Jxl.Emitter();
             this.emitter2.createSprites(Jxl.am.get("bunny"), 1, new Jxl.Point({x: 36, y: 21}), true, true, 0.8);
@@ -28,7 +27,7 @@
             
             setTimeout(function() {
                 Jxl.state.particles.add(self.emitter);
-                Jxl.state.particles.add(self.emitter2);
+                Jxl.state.add(self.emitter2);
                 Jxl.state.add(self.boom);
             }, 0);
             
@@ -58,32 +57,38 @@
                      this.velocity.x = this.speed;
                 } 
                 
-                this.lastBunny += Jxl.delta; 
-                
                 if(Jxl.mouse.click && this.lastBunny > 2) {
                     this.bunnyStorm();    
-                    this.lastBunny = 0;
                 } 
-                if(this.lastBunny > 1) { this.boom.visible = false; }
-                if(this.bunnySummonTime > 2) {
-                    this.bunnySummon();
-                } else {
-                    this.emitter2.kill();    
-                }
-                
-                this.bunnySummonTime += Jxl.delta;
                 
                 if((Jxl.keys.press(32)) && (this.onFloor || this.onSide)) {
                     this.velocity.y = -280;
                 }
                 
             }
+            
+            this.lastBunny += Jxl.delta;
+            if(this.lastBunny > 1) { this.boom.visible = false; }
+            
+            this.bunnySummonTime += Jxl.delta;
+            if(this.bunnySummonTime > 2) {
+                this.bunnySummon();
+            } else {
+                this.emitter2.kill();    
+            }
+            
             if(this.velocity.x != 0) {
                 this.play("run");    
             } else {
                 this.play("idle");    
             }
             Jxl.Sprite.prototype.update.call(this);
+        },
+        hit: function(contact, velocity) {
+            if(contact.isBunny) {
+                this.flicker(1);
+                contact.kill();
+            }
         },
         hitBottom: function(Contact, Velocity) {
             this.onFloor = true;
@@ -98,13 +103,20 @@
             this.velocity.x *= this._bounce;
         },
         pack : function() {
-           return {
+            var pack = {
                reverse : this.reverse,
                x : this.x, 
                y : this.y,
                vx : this.velocity.x,
                vy : this.velocity.y
-           };
+            };
+             
+            if(this.stormed) {
+                pack.stormed = this.stormed;    
+            }
+            
+            this.stormed = false;
+            return pack;
         },
         bunnySummon : function() {
             var factor = this.reverse ? -1 : 1;
@@ -115,19 +127,37 @@
             this.emitter2.setXSpeed(500*factor, 800*factor);
             this.emitter2.start(true, 1, 1);  
         },
-        bunnyStorm : function() {
-            var factor = this.reverse ? -1 : 1;
-            
-            this.emitter.x = Jxl.mouse.x;
-            this.emitter.y = Jxl.mouse.y;
-            
-            this.boom.x = Jxl.mouse.x - this.boom.origin.x;
-            this.boom.y = Jxl.mouse.y - this.boom.origin.y;
+        bunnyStorm : function(x, y, xSpeed, ySpeed, reverse) {
+            var factor = reverse || this.reverse ? -1 : 1;
+            this.lastBunny = 0;
+            this.emitter.x = x || Jxl.mouse.x;
+            this.emitter.y = y || Jxl.mouse.y;
+
+            this.boom.x = this.emitter.x - this.boom.origin.x;
+            this.boom.y = this.emitter.y - this.boom.origin.y;
             this.boom.visible = true;
             
             this.emitter.setXSpeed(500*factor, 800*factor);
+            
+            xSpeed = xSpeed || factor * (500 + Math.round(Math.random()*300));
+            ySpeed = ySpeed || -300 + Math.round(Math.random()*600);
+            
+            this.emitter.setXSpeed(xSpeed, xSpeed);
+            this.emitter.setYSpeed(ySpeed, ySpeed);   
+            
+            
             this.emitter.start(true, 2, 1);
             this.bunnySummonTime = 0;
+            
+            if(this.me) {
+                this.stormed = {
+                    x: this.emitter.x,
+                    y: this.emitter.y,
+                    xSpeed: xSpeed,
+                    ySpeed: ySpeed,
+                    reverse: factor
+                };
+            }
         }
     });
     
@@ -140,6 +170,7 @@
                 mapData: Jxl.am.get("map"),
                 collideIndex: 1
             });
+            
             this.flicker(1);
         }
     });
@@ -163,7 +194,7 @@
             //Avatars
             this.avatars = new Jxl.Group();
             this.avatar = new SNC.Wizard(myMap.widthInTiles*myMap._tileWidth/2, myMap.heightInTiles*myMap._tileHeight/2, true);
-            this.add(this.avatar);
+            this.avatars.add(this.avatar);
             
             this.add(this.maps, this.avatars, this.particles);
             
@@ -192,13 +223,14 @@
                 //coould attempt a summon here
             }
             if(conn.map) {
-                this.waitDestroy(conn.map);   
+                this.waitDestroy(conn.map);  
+                this.attemptSummon();
             }
             if(this.peers[conn.id]) 
                 delete this.peers[conn.id];
         },
         onOpen : function(id) {
-            window.location.hash = id;
+            //window.location.hash = id;
             this.summon();
         },
         sane : function(data) {
@@ -228,20 +260,35 @@
         onData : function(conn, data) {
             switch(data.type) {
                 case "avatar":
-                    if(!data.pack && [data.x, data.y, data.vx, data.vy].reduce(function(prev, cur){return prev || !sane(cur); })) {
+                    var pack = data.pack;
+                    
+                    if(!data.pack || data.pack == null || [data.pack.x, data.pack.y, data.pack.vx, data.pack.vy].reduce(function(prev, cur){ return prev || !sane(cur); }), false) {
                         conn.close();
                         return; 
                     }
+                    if(pack.stormed && [pack.stormed.x, pack.stormed.y, pack.stormed.xSpeed, pack.stormed.ySpeed].reduce(function(prev, cur) { return prev || !sane(cur); }), false) {
+                        conn.close();
+                        return;   
+                    }
+                    
+                    if(!pack) return;
                     
                     if(!conn.avatar) {
                         conn.avatar = new SNC.Wizard(data.pack.x, data.pack.y);
                         this.avatars.add(conn.avatar);    
                     }
+                    
                     conn.avatar.x = data.pack.x+conn.offset.x;
                     conn.avatar.y = data.pack.y+conn.offset.y;
                     conn.avatar.velocity.x = data.pack.vx;
                     conn.avatar.velocity.y = data.pack.vy;
                     conn.avatar.reverse = data.pack.reverse;
+                    
+                    if(pack.stormed) {
+                        console.log("BUNNNNNY STORM");
+                        conn.avatar.bunnyStorm(pack.stormed.x+conn.offset.x, pack.stormed.y+conn.offset.y, pack.stormed.xSpeed, pack.stormed.ySpeed, pack.stormed.reverse);    
+                    }
+                    
                     break;
                     
                 case "offer":
@@ -287,7 +334,6 @@
             bottom: {x:0,y:1}
         },
         makeMap : function(dir, conn) {
-            console.log("making ", dir);
             var map = new SNC.Map(),
                 x = this.dirs[dir].x,
                 y = this.dirs[dir].y;
@@ -297,7 +343,7 @@
             conn.map = map;
             conn.dir = dir;
             conn.offset = { x : x*map.width, y: y*map.height};
-            this.add(map);
+            this.maps.add(map);
             this.peers[conn.peer] = conn;
         },
         onConnection : function(conn, connecter) {
@@ -315,7 +361,7 @@
             }
         },
         attemptSummon : function() {
-            if(this.peerList.length === 0) {
+            if(this.peerList.length === 0 && !this.openSlot()) {
                 return setTimeout(this.summon.bind(this), 5000);   
             }
             
@@ -339,14 +385,14 @@
             var self = this;
             
             Jxl.State.prototype.update.call(this);
-            Jxl.Util.collide(this.avatar, this.maps);
-            Jxl.Util.collide(this.avatar, this.avatars);
+            Jxl.Util.collide(this.avatars, this.maps);
             Jxl.Util.collide(this.particles, this.avatars);
             Jxl.Util.collide(this.particles, this.maps);
             
             // net update
+            var pack = self.avatar.pack();
             Object.keys(this.peers).forEach(function(peer) {
-                self.peers[peer].send({type:"avatar", pack: self.avatar.pack()});
+                self.peers[peer].send({type:"avatar", pack: pack});
             });
         }
     });
