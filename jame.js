@@ -73,9 +73,7 @@
                 }
                 
                 if(this.y > 2000) {
-                    this.x = this.spawn.x;
-                    this.y = this.spawn.y;
-                    this.flicker(1);
+                    this.respawn();
                 }
             }
             
@@ -96,13 +94,19 @@
             }
             Jxl.Sprite.prototype.update.call(this);
         },
+        respawn: function() {
+            this.x = this.spawn.x;
+            this.y = this.spawn.y;
+            this.flicker(1);
+        },
         hit: function(contact, velocity) {
             if(contact.isBunny) {
                 this.flicker(1);
                 contact.kill();
                 
                 if(this.me) {
-                    this.modScore(-1);    
+                    this.modScore(-1);
+                    this.respawn();
                 } else {
                     Jxl.state.avatar.modScore(1);    
                 }
@@ -363,7 +367,7 @@
             var map = new SNC.Map(),
                 x = this.dirs[dir].x,
                 y = this.dirs[dir].y;
-
+            console.log("made map");
             map.x = x*map.width;
             map.y = y*map.height;
             conn.map = map;
