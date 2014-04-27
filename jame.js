@@ -41,7 +41,7 @@
                 this.drag = new Jxl.Point({x:150,y:0});
             } else {
                 this.fixed = true;
-                this.moves = false;
+                //this.moves = false;
             }
             
             this.addAnimation("run", [2, 1, 3], .03);
