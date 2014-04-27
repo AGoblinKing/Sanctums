@@ -1,11 +1,13 @@
 (function() {
     "use strict";
+    var score = document.getElementById("score");
     
     def("SNC.Wizard", {
         extend: Jxl.Sprite,
         init : function(x, y, me) {
             var self = this;
             
+            this.spawn = {x:x,y:y};
             this.me = me;
             Jxl.Sprite.prototype.init.call(this, {
                 x: x,
@@ -47,6 +49,11 @@
             this.addAnimation("run", [2, 1, 3], .03);
             this.addAnimation("idle", [0], .5);
         },
+        bunnies: 1,
+        modScore: function(mod) {
+            this.bunnies = Math.max(this.bunnies + mod, 1);  
+            score.innerHTML = this.bunnies;
+        },
         update: function() {
             if(this.me) {
                 if(Jxl.keys.on('A')) {
@@ -65,6 +72,11 @@
                     this.velocity.y = -280;
                 }
                 
+                if(this.y > 2000) {
+                    this.x = this.spawn.x;
+                    this.y = this.spawn.y;
+                    this.flicker(1);
+                }
             }
             
             this.lastBunny += Jxl.delta;
@@ -88,6 +100,12 @@
             if(contact.isBunny) {
                 this.flicker(1);
                 contact.kill();
+                
+                if(this.me) {
+                    this.modScore(-1);    
+                } else {
+                    Jxl.state.avatar.modScore(1);    
+                }
             }
         },
         hitBottom: function(Contact, Velocity) {
@@ -127,8 +145,9 @@
             this.emitter2.setXSpeed(500*factor, 800*factor);
             this.emitter2.start(true, 1, 1);  
         },
-        bunnyStorm : function(x, y, xSpeed, ySpeed, reverse) {
+        bunnyStorm : function(x, y, bunnies, reverse) {
             var factor = reverse || this.reverse ? -1 : 1;
+            
             this.lastBunny = 0;
             this.emitter.x = x || Jxl.mouse.x;
             this.emitter.y = y || Jxl.mouse.y;
@@ -137,25 +156,33 @@
             this.boom.y = this.emitter.y - this.boom.origin.y;
             this.boom.visible = true;
             
-            this.emitter.setXSpeed(500*factor, 800*factor);
+            if(!bunnies) {
+                bunnies = [];
+                for(var i = 0; i < this.bunnies; i++) {
+                    bunnies.push({
+                        xSpeed : factor * (500 + Math.round(Math.random()*300)),
+                        ySpeed : -300 + Math.round(Math.random()*600)
+                    });
+                }
+            }
             
-            xSpeed = xSpeed || factor * (500 + Math.round(Math.random()*300));
-            ySpeed = ySpeed || -300 + Math.round(Math.random()*600);
+            for(var i = 0; i < bunnies.length; i++) {
+                var bun = bunnies[i];
+                
+                this.emitter.setXSpeed(bun.xSpeed, bun.xSpeed);
+                this.emitter.setYSpeed(bun.ySpeed, bun.ySpeed);   
+
+                this.emitter.start(true, 2, 1);
+            }
             
-            this.emitter.setXSpeed(xSpeed, xSpeed);
-            this.emitter.setYSpeed(ySpeed, ySpeed);   
-            
-            
-            this.emitter.start(true, 2, 1);
             this.bunnySummonTime = 0;
             
             if(this.me) {
                 this.stormed = {
                     x: this.emitter.x,
                     y: this.emitter.y,
-                    xSpeed: xSpeed,
-                    ySpeed: ySpeed,
-                    reverse: factor
+                    reverse: factor,
+                    bunnies: bunnies
                 };
             }
         }
@@ -179,7 +206,7 @@
         extend: Jxl.State,
         init: function() {
             var self = this;
-            
+            Jxl.Util.setWorldBounds(-4000, -4000, 4000, 4000);
             Jxl.State.prototype.init.call(this);
             
             //Maps
@@ -266,7 +293,7 @@
                         conn.close();
                         return; 
                     }
-                    if(pack.stormed && [pack.stormed.x, pack.stormed.y, pack.stormed.xSpeed, pack.stormed.ySpeed].reduce(function(prev, cur) { return prev || !sane(cur); }), false) {
+                    if(pack.stormed && [pack.stormed.x, pack.stormed.y].reduce(function(prev, cur) { return prev || !sane(cur); }), false) {
                         conn.close();
                         return;   
                     }
@@ -285,7 +312,7 @@
                     conn.avatar.reverse = data.pack.reverse;
                     
                     if(pack.stormed) {
-                        conn.avatar.bunnyStorm(pack.stormed.x+conn.offset.x, pack.stormed.y+conn.offset.y, pack.stormed.xSpeed, pack.stormed.ySpeed, pack.stormed.reverse);    
+                        conn.avatar.bunnyStorm(pack.stormed.x+conn.offset.x, pack.stormed.y+conn.offset.y, pack.bunnies, pack.stormed.reverse);    
                     }
                     
                     break;
@@ -336,7 +363,7 @@
             var map = new SNC.Map(),
                 x = this.dirs[dir].x,
                 y = this.dirs[dir].y;
-
+            console.log("made map");
             map.x = x*map.width;
             map.y = y*map.height;
             conn.map = map;
