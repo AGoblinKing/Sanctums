@@ -18,11 +18,22 @@
             this.emitter.createSprites(Jxl.am.get("bunny"), 28, new Jxl.Point({x: 36, y: 21}), true, true, 0.8);
             this.emitter.setYSpeed(-300, 300);
             
+            
+            this.emitter2 = new Jxl.Emitter();
+            this.emitter2.createSprites(Jxl.am.get("bunny"), 1, new Jxl.Point({x: 36, y: 21}), true, true, 0.8);
+            this.emitter2.setYSpeed(-300, 300);
+            
+            this.boom = new Jxl.Sprite({graphic: Jxl.am.get("boom")});
+            this.boom.visible = false;
+            
             setTimeout(function() {
                 Jxl.state.particles.add(self.emitter);
+                Jxl.state.particles.add(self.emitter2);
+                Jxl.state.add(self.boom);
             }, 0);
             
             this.lastBunny = 0;
+            this.bunnySummonTime = 0;
             
             if(me) {
                 this.acceleration.y = 800;
@@ -49,10 +60,18 @@
                 
                 this.lastBunny += Jxl.delta; 
                 
-                if(Jxl.keys.on("P") && this.lastBunny > .5) {
+                if(Jxl.mouse.click && this.lastBunny > 2) {
                     this.bunnyStorm();    
                     this.lastBunny = 0;
+                } 
+                if(this.lastBunny > 1) { this.boom.visible = false; }
+                if(this.bunnySummonTime > 2) {
+                    this.bunnySummon();
+                } else {
+                    this.emitter2.kill();    
                 }
+                
+                this.bunnySummonTime += Jxl.delta;
                 
                 if((Jxl.keys.press(32)) && (this.onFloor || this.onSide)) {
                     this.velocity.y = -280;
@@ -87,14 +106,28 @@
                vy : this.velocity.y
            };
         },
+        bunnySummon : function() {
+            var factor = this.reverse ? -1 : 1;
+            
+            this.emitter2.x = this.x + this.width/2 + this.width/2 * factor + Math.random() * 5;
+            this.emitter2.y = this.y + this.height/4 + Math.random() * 5;
+            
+            this.emitter2.setXSpeed(500*factor, 800*factor);
+            this.emitter2.start(true, 1, 1);  
+        },
         bunnyStorm : function() {
             var factor = this.reverse ? -1 : 1;
             
-            this.emitter.x = this.x + this.width/2 + this.width/2 * factor + Math.random() * 5;
-            this.emitter.y = this.y + this.height/4 + Math.random() * 5;
+            this.emitter.x = Jxl.mouse.x;
+            this.emitter.y = Jxl.mouse.y;
+            
+            this.boom.x = Jxl.mouse.x - this.boom.origin.x;
+            this.boom.y = Jxl.mouse.y - this.boom.origin.y;
+            this.boom.visible = true;
             
             this.emitter.setXSpeed(500*factor, 800*factor);
-            this.emitter.start(true, 1, 1);
+            this.emitter.start(true, 2, 1);
+            this.bunnySummonTime = 0;
         }
     });
     
@@ -329,7 +362,8 @@
         "images" : {
             "wizard" : "assets/wizard.png",
             "tile" : "assets/tile.png",
-            "bunny" : "assets/bunny.png"
+            "bunny" : "assets/bunny.png",
+            "boom" : "assets/boom.png"
         },
         "data" : {
             "map" : "assets/map.csv"    
