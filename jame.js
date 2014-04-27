@@ -22,6 +22,8 @@
                 Jxl.state.particles.add(self.emitter);
             }, 0);
             
+            this.lastBunny = 0;
+            
             if(me) {
                 this.acceleration.y = 800;
                 this._bounce = 0.5;
@@ -31,6 +33,7 @@
                 this.fixed = true;
                 this.moves = false;
             }
+            
             this.addAnimation("run", [2, 1, 3], .03);
             this.addAnimation("idle", [0], .5);
         },
@@ -44,8 +47,11 @@
                      this.velocity.x = this.speed;
                 } 
                 
-                if(Jxl.keys.on("P")) {
+                this.lastBunny += Jxl.delta; 
+                
+                if(Jxl.keys.on("P") && this.lastBunny > .5) {
                     this.bunnyStorm();    
+                    this.lastBunny = 0;
                 }
                 
                 if((Jxl.keys.press(32)) && (this.onFloor || this.onSide)) {
@@ -88,7 +94,7 @@
             this.emitter.y = this.y + this.height/4 + Math.random() * 5;
             
             this.emitter.setXSpeed(500*factor, 800*factor);
-            this.emitter.start(true, 5, 1);
+            this.emitter.start(true, 1, 1);
         }
     });
     
@@ -116,6 +122,7 @@
             this.maps = new Jxl.Group();
             var myMap = this.map = new SNC.Map();
             this.maps.add(myMap);
+            this.slots = {};
             
             //Particles
             this.particles = new Jxl.Group();
@@ -133,11 +140,29 @@
             //setup networking
             this.net = new Peer(null, { host: "64.187.160.30", port: 9091, key : "peerjs" });
             this.peers = {};
+            
             this.net.on("open", this.onOpen.bind(this));
             this.net.on("connection", this.onConnection.bind(this));
         },
+        waitDestroy: function(target) {
+            target.flicker(1);
+            setTimeout(function() {
+                target.kill();    
+            }, 1000);
+        },
         onClose : function(conn) {
-            conn.avatar.kill();
+            if(conn.avatar) {
+                this.waitDestroy(conn.avatar);
+            }
+            if(conn.dir) {
+                delete this.slots[conn.dir];
+                //coould attempt a summon here
+            }
+            if(conn.map) {
+                this.waitDestroy(conn.map);   
+            }
+            if(this.peers[conn.id]) 
+                delete this.peers[conn.id];
         },
         onOpen : function(id) {
             window.location.hash = id;
@@ -145,6 +170,27 @@
         },
         sane : function(data) {
             return data < 10000 && data > -10000;    
+        },
+        openSlots : function() {
+            var available = Object.keys(this.dirs),
+                self = this;
+            
+            return available.filter(function(dir) { return self.slots[dir] ? false : true; });
+        },
+        openSlot : function() {
+            var open = this.openSlots();
+            
+            if(open.length === 0) return false;
+            
+            return open[Math.floor(Math.random()*open.length)];
+        },
+        reverseSlot : function(slot) {
+            switch(slot) {
+                case "left": return "right";
+                case "right": return "left";
+                case "top": return "bottom";
+                case "bottom": return "top";
+            }
         },
         onData : function(conn, data) {
             switch(data.type) {
@@ -166,35 +212,94 @@
                     break;
                     
                 case "offer":
-                    conn.send({type:"accept", x: 1, y:0});
+                    var slot = this.reverseSlot(data.slot);
+                    if(!this.slots[slot]) {
+                        conn.send({type:"accept", slot: data.slot});
+                        this.makeMap(slot, conn);
+                    } else {
+                        slot = this.openSlot();
+                        if(slot) {
+                            this.slots[slot] = "temp";
+                        }
+                        conn.send({type:"reject", slot : data.slot, newOffer: slot}); 
+                    }
+                    
+                    break;
+                case "reject":
+                    //aw didn't want my slot
+                    delete this.slots[data.slot];
+                    
+                    // but the counter offer could be okay
+                    if(data.newOffer) {
+                        var mySlot = this.reverseSlot(data.newOffer);
+                        if(!this.slots[mySlot]) {
+                            conn.send({type:"accept", slot:data.slot});
+                            this.makeMap(mySlot, conn);
+                        } else {
+                            conn.send({type:"reject", slot : data.newOffer});   
+                        }
+                    }
+                    break;
+                    
                 case "accept":
-                    var map = new SNC.Map();
-                    map.x = data.x*map.width;
-                    conn.offset = { x : data.x*map.width, y: data.y*map.height};
-                    this.add(map);
+                    this.makeMap(data.slot, conn);
+                    this.attemptSummon();
                     break;
             }
         },
-        onConnection : function(conn, connecter) {
+        dirs : {
+            left : {x:-1,y:0},
+            right : {x:1,y:0},
+            top : {x:0,y:-1},
+            bottom: {x:0,y:1}
+        },
+        makeMap : function(dir, conn) {
+            console.log("making ", dir);
+            var map = new SNC.Map(),
+                x = this.dirs[dir].x,
+                y = this.dirs[dir].y;
+
+            map.x = x*map.width;
+            map.y = y*map.height;
+            conn.map = map;
+            conn.dir = dir;
+            conn.offset = { x : x*map.width, y: y*map.height};
+            this.add(map);
             this.peers[conn.peer] = conn;
+        },
+        onConnection : function(conn, connecter) {
             conn.on("data", this.onData.bind(this, conn));
             conn.on("close", this.onClose.bind(this, conn));
             
             if(connecter) {
-                conn.send({type: "offer", x : -1, y: 0});
+                var slot = this.openSlot();
+                if(slot) {
+                    this.slots[slot] = "temp";
+                    conn.send({type: "offer", slot: slot});
+                } else {
+                    conn.close();
+                }
             }
+        },
+        attemptSummon : function() {
+            if(this.peerList.length === 0) {
+                return setTimeout(this.summon.bind(this), 5000);   
+            }
+            
+            var peer = this.peerList.pop();
+            if(peer === this.net.id || Object.keys(this.peers).indexOf(peer) !== -1) {
+               return this.attemptSummon();    
+            }
+            
+            var conn = this.net.connect(peer);
+            conn.on("open", this.onConnection.bind(this, conn, true));
         },
         summon : function() {
             var self = this;
             this.net.listAllPeers(function(peers) {
                 // woo lets try to get a peer
-                
-                peers.forEach(function(peer) {
-                   if(peer != self.net.id) {
-                       var conn = self.net.connect(peer); 
-                       conn.on("open", self.onConnection.bind(self, conn, true));
-                   }
-                });        
+                self.peerList = peers;
+                self.attemptSummon();       
             });
         },
         update : function() {
