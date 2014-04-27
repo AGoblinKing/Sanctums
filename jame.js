@@ -363,7 +363,7 @@
             var map = new SNC.Map(),
                 x = this.dirs[dir].x,
                 y = this.dirs[dir].y;
-            console.log("made map");
+
             map.x = x*map.width;
             map.y = y*map.height;
             conn.map = map;
